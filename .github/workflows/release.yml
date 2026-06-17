@@ -1,0 +1,155 @@
+name: Release (APK + AppImage)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pubspec.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.44.2'
+
+jobs:
+  setup:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      name: ${{ steps.v.outputs.name }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          VERSION=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -1)
+          NAME="${VERSION%%+*}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          if [[ "$NAME" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-apk:
+    name: Build Android APKs
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Generate localization data
+        run: dart localization/generator.dart
+
+      - name: Enable in-app update check
+        run: echo "const updateCheckFlag = true;" > lib/utils/update_check_flag_file.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build split-per-ABI release APKs
+        run: flutter build apk --release --split-per-abi
+
+      - name: Rename APKs to include the version
+        run: |
+          cd build/app/outputs/flutter-apk
+          for f in *-release.apk; do
+            abi="${f#app-}"; abi="${abi%-release.apk}"
+            mv "$f" "harmonymusic-${{ needs.setup.outputs.version }}-${abi}.apk"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: build/app/outputs/flutter-apk/harmonymusic-*.apk
+          if-no-files-found: error
+
+  build-appimage:
+    name: Build Linux AppImage
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libmpv-dev mpv libfuse2
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Generate localization data
+        run: dart localization/generator.dart
+
+      - name: Enable in-app update check
+        run: echo "const updateCheckFlag = true;" > lib/utils/update_check_flag_file.dart
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build AppImage
+        run: |
+          dart pub global activate flutter_distributor
+          flutter_distributor package --platform linux --targets appimage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: dist/**/*.AppImage
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [setup, build-apk, build-appimage]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Remove existing assets for this version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          tag="v${{ needs.setup.outputs.name }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release view "$tag" --json assets -q '.assets[].name' | while read -r asset; do
+              [ -n "$asset" ] && gh release delete-asset "$tag" "$asset" --yes
+            done
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.setup.outputs.name }}
+          name: v${{ needs.setup.outputs.name }}
+          prerelease: ${{ needs.setup.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/apk/*.apk
+            artifacts/appimage/**/*.AppImage
