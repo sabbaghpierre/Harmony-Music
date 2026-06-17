@@ -199,8 +199,10 @@ class BackupDialogController extends GetxController {
       return;
     }
 
-    final String? pickedFolderPath = await FilePicker.platform
-        .getDirectoryPath(dialogTitle: "Select backup file folder");
+    final String? pickedFolderPath = await FilePicker
+        .getDirectoryPath(
+          dialogTitle: "Select backup file folder"
+          );
     if (pickedFolderPath == '/' || pickedFolderPath == null) {
       return;
     }
@@ -279,7 +281,7 @@ void _compressFiles(Map<String, dynamic> params) {
 
   final encoder = ZipEncoder();
   final zipFile = File(zipFilePath);
-  zipFile.writeAsBytesSync(encoder.encode(archive)!);
+  zipFile.writeAsBytesSync(encoder.encode(archive));
 }
 
 // Example usage

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_lyric/lyrics_reader.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:get/get.dart';
 
 import '../../widgets/loader.dart';
@@ -41,29 +41,36 @@ class LyricsWidget extends StatelessWidget {
                     ),
                   ),
                 )
-              : IgnorePointer(
-                  child: LyricsReader(
-                    padding: const EdgeInsets.only(left: 5, right: 5),
-                    lyricUi: playerController.lyricUi,
-                    position: playerController
-                        .progressBarStatus.value.current.inMilliseconds,
-                    model: LyricsModelBuilder.create()
-                        .bindLyricToMain(
-                            playerController.lyrics['synced'].toString())
-                        .getModel(),
-                    emptyBuilder: () => Center(
+              : Obx(() {
+                  final synced =
+                      playerController.lyrics['synced']?.toString() ?? '';
+                  if (synced.isEmpty) {
+                    return Center(
                       child: Text(
                         "syncedLyricsNotAvailable".tr,
                         style: playerController.isDesktopLyricsDialogOpen
-                              ? Theme.of(context).textTheme.titleMedium!
-                              : Theme.of(context)
-                                  .textTheme
-                                  .titleMedium!
-                                  .copyWith(color: Colors.white),
+                            ? Theme.of(context).textTheme.titleMedium!
+                            : Theme.of(context)
+                                .textTheme
+                                .titleMedium!
+                                .copyWith(color: Colors.white),
+                      ),
+                    );
+                  }
+                  return IgnorePointer(
+                    child: LyricView(
+                      controller: playerController.lyricController,
+                      style: LyricStyles.default1.copyWith(
+                        textStyle: const TextStyle(
+                            fontSize: 20, color: Colors.white70),
+                        activeStyle: const TextStyle(
+                            fontSize: 20, color: Colors.white),
+                        translationStyle: const TextStyle(
+                            fontSize: 12, color: Colors.white70),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }),
     );
   }
 }

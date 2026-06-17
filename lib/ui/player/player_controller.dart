@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter_lyric/lyric_ui/ui_netease.dart';
+import 'package:flutter_lyric/flutter_lyric.dart';
 import 'package:hive/hive.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
@@ -66,8 +66,7 @@ class PlayerController extends GetxController
   bool isDesktopLyricsDialogOpen = false;
   // 0 for play, 1 for pause, 2 for blank
   final gesturePlayerVisibleState = 2.obs;
-  final lyricUi =
-      UINetease(highlight: true, defaultSize: 20, defaultExtSize: 12);
+  final lyricController = LyricController();
   RxMap<String, dynamic> lyrics =
       <String, dynamic>{"synced": "", "plainLyrics": ""}.obs;
   ScrollController scrollController = ScrollController();
@@ -86,6 +85,14 @@ class PlayerController extends GetxController
   @override
   onInit() {
     _init();
+    
+    ever(lyrics, (Map<String, dynamic> value) {
+      final synced = value['synced']?.toString() ?? '';
+      if (synced.isNotEmpty) {
+        lyricController.loadLyric(synced);
+        lyricController.setProgress(progressBarStatus.value.current);
+      }
+    });
     super.onInit();
   }
 
@@ -223,6 +230,7 @@ class PlayerController extends GetxController
         val.buffered = oldState.buffered;
         val.total = oldState.total;
       });
+      lyricController.setProgress(position);
     });
   }
 
@@ -260,6 +268,7 @@ class PlayerController extends GetxController
         _newSongFlag = true;
         isCurrentSongBuffered.value = false;
         currentSong.value = mediaItem;
+        Hive.box("AppPrefs").put("recentSongId", mediaItem.id);
         currentSongIndex.value = currentQueue
             .indexWhere((element) => element.id == currentSong.value!.id);
         await _checkFav();

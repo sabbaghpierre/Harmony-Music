@@ -139,7 +139,7 @@ class RestoreDialogController extends GetxController {
       return;
     }
 
-    final FilePickerResult? pickedFileResult = await FilePicker.platform
+    final FilePickerResult? pickedFileResult = await FilePicker
         .pickFiles(
             dialogTitle: "Select backup file",
             type: GetPlatform.isWindows ? FileType.custom : FileType.any,

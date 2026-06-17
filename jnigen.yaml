@@ -8,6 +8,8 @@ output:
 
 source_path:
   - 'android/app/src/main/kotlin'
+class_path:
+  - 'build/app/tmp/kotlin-classes/debug'
 classes:
   - 'com.anandnet.harmonymusic.Equalizer'
   - 'com.anandnet.harmonymusic.SDKInt'

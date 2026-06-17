@@ -191,8 +191,10 @@ class SettingsScreenController extends GetxController {
       return;
     }
 
-    final String? pickedFolderPath = await FilePicker.platform
-        .getDirectoryPath(dialogTitle: "Select export file folder");
+    final String? pickedFolderPath = await FilePicker
+        .getDirectoryPath(
+          dialogTitle: "Select export file folder"
+          );
     if (pickedFolderPath == '/' || pickedFolderPath == null) {
       return;
     }
@@ -206,8 +208,10 @@ class SettingsScreenController extends GetxController {
       return;
     }
 
-    final String? pickedFolderPath = await FilePicker.platform
-        .getDirectoryPath(dialogTitle: "Select downloads folder");
+    final String? pickedFolderPath = await FilePicker
+        .getDirectoryPath(
+          dialogTitle: "Select downloads folder"
+        );
     if (pickedFolderPath == '/' || pickedFolderPath == null) {
       return;
     }

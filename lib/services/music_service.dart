@@ -7,6 +7,8 @@ import 'package:get/get.dart' as getx;
 import 'package:hive/hive.dart';
 
 import '/models/album.dart';
+import '/models/artist.dart';
+import '/models/playlist.dart';
 import '/services/utils.dart';
 import '../utils/helper.dart';
 import 'constant.dart';
@@ -658,6 +660,21 @@ class MusicServices extends getx.GetxService {
       return searchResults;
     }
 
+    if (filter == null &&
+        (results as List).any((res) => res['itemSectionRenderer'] != null)) {
+      for (final res in results) {
+        final data = nav(res, ['itemSectionRenderer', 'contents', 0, mrlir]);
+        if (data == null) continue;
+        final item = parseSearchResult(data,
+            ['artist', 'playlist', 'song', 'video', 'station'], null, 'mixed');
+        final key = _searchResultTabKey(item, data);
+        if (key == null) continue;
+        (searchResults[key] ??= <dynamic>[]) as List;
+        (searchResults[key] as List).add(item);
+      }
+      return searchResults;
+    }
+
     String? type;
 
     for (var res in results) {
@@ -726,6 +743,18 @@ class MusicServices extends getx.GetxService {
     }
 
     return searchResults;
+  }
+
+  String? _searchResultTabKey(dynamic item, dynamic data) {
+    if (item is Album) return "Albums";
+    if (item is Artist) return "Artists";
+    if (item is Playlist) return "Community playlists";
+    if (item is MediaItem) {
+      final videoType = nav(data,
+          [...play_button, 'playNavigationEndpoint', ...navigation_video_type]);
+      return videoType == 'MUSIC_VIDEO_TYPE_ATV' ? "Songs" : "Videos";
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>> getSearchContinuation(Map additionalParamsNext,
