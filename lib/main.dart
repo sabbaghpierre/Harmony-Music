@@ -113,6 +113,13 @@ initHive() async {
   await Hive.openBox("SongDownloads");
   await Hive.openBox('SongsUrlCache');
   await Hive.openBox("AppPrefs");
+  // Stream URLs cached by older youtube_explode_dart clients are rejected by
+  // YouTube with 403 (PO-token gating). Clear them once so they refetch.
+  final appPrefsBox = Hive.box("AppPrefs");
+  if (appPrefsBox.get("streamGen") != "androidSdkless") {
+    await Hive.box("SongsUrlCache").clear();
+    appPrefsBox.put("streamGen", "androidSdkless");
+  }
 }
 
 void _setAppInitPrefs() {

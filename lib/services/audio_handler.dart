@@ -485,7 +485,9 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         await _playList.add(_createAudioSource(currentSong));
 
         isSongLoading = false;
-        if (loudnessNormalizationEnabled && GetPlatform.isAndroid) {
+        if (loudnessNormalizationEnabled &&
+            GetPlatform.isAndroid &&
+            streamInfo.audio!.loudnessDb != 0.0) {
           _normalizeVolume(streamInfo.audio!.loudnessDb);
         }
 
@@ -564,7 +566,9 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         isSongLoading = false;
 
         // Normalize audio
-        if (loudnessNormalizationEnabled && GetPlatform.isAndroid) {
+        if (loudnessNormalizationEnabled &&
+            GetPlatform.isAndroid &&
+            streamInfo.audio!.loudnessDb != 0.0) {
           _normalizeVolume(streamInfo.audio!.loudnessDb);
         }
 
@@ -853,8 +857,10 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
 
       if (streamInfo == null) {
         final token = RootIsolateToken.instance;
-        final streamInfoJson =
-            await Isolate.run(() => getStreamInfo(songId, token));
+        final ytDlpPath =
+            Hive.box("AppPrefs").get("ytDlpPath")?.toString().trim() ?? "";
+        final streamInfoJson = await Isolate.run(
+            () => getStreamInfo(songId, token, ytDlpPath));
         streamInfo = HMStreamingData.fromJson(streamInfoJson);
         if (streamInfo.playable) songsUrlCacheBox.put(songId, streamInfoJson);
       }

@@ -409,6 +409,25 @@ class SettingsScreen extends StatelessWidget {
                               onChanged:
                                   settingsController.toggleBackgroundPlay),
                         )),
+                  if (isDesktop)
+                    ListTile(
+                      contentPadding:
+                          const EdgeInsets.only(left: 5, right: 10),
+                      title: const Text("yt-dlp binary"),
+                      subtitle: Obx(
+                        () => Text(
+                          settingsController.ytDlpPath.value == null ||
+                                  settingsController.ytDlpPath.value!.isEmpty
+                              ? "Auto-detect (default: yt-dlp in PATH). Used to get playable stream URLs."
+                              : "Path: ${settingsController.ytDlpPath.value}",
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _showYtDlpPathDialog(context),
+                      ),
+                    ),
                   ListTile(
                       contentPadding: const EdgeInsets.only(left: 5, right: 10),
                       title: Text("keepScreenOnWhilePlaying".tr),
@@ -852,4 +871,45 @@ Widget radioWidget(
                 : controller.onContentChange),
         title: Text(label),
       ));
+}
+
+void _showYtDlpPathDialog(BuildContext context) {
+  final settingsController = Get.find<SettingsScreenController>();
+  final controller = TextEditingController(
+      text: settingsController.ytDlpPath.value ?? "");
+  showDialog(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text("yt-dlp binary path"),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: "yt-dlp",
+          helperText:
+              "Full path to the yt-dlp executable. Leave empty to auto-detect.",
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            settingsController.setYtDlpPath(null);
+            Navigator.pop(dialogContext);
+          },
+          child: const Text("Clear"),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text("Cancel"),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            settingsController.setYtDlpPath(controller.text);
+            Navigator.pop(dialogContext);
+          },
+          child: const Text("Save"),
+        ),
+      ],
+    ),
+  );
 }

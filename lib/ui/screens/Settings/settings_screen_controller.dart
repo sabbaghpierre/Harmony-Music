@@ -40,6 +40,7 @@ class SettingsScreenController extends GetxController {
   final currentAppLanguageCode = "en".obs;
   final downloadLocationPath = "".obs;
   final exportLocationPath = "".obs;
+  final ytDlpPath = RxnString();
   final downloadingFormat = "".obs;
   final autoDownloadFavoriteSongEnabled = false.obs;
   final isTransitionAnimationDisabled = false.obs;
@@ -129,6 +130,7 @@ class SettingsScreenController extends GetxController {
 
     exportLocationPath.value =
         setBox.get("exportLocationPath") ?? "/storage/emulated/0/Music";
+    ytDlpPath.value = setBox.get("ytDlpPath")?.toString() ?? "";
     downloadingFormat.value = setBox.get('downloadingFormat') ?? "m4a";
     discoverContentType.value = setBox.get('discoverContentType') ?? "QP";
     slidableActionEnabled.value = setBox.get('slidableActionEnabled') ?? true;
@@ -161,6 +163,17 @@ class SettingsScreenController extends GetxController {
   void setStreamingQuality(dynamic val) {
     setBox.put("streamingQuality", AudioQuality.values.indexOf(val));
     streamingQuality.value = val;
+  }
+
+  void setYtDlpPath(String? path) {
+    final trimmed = path?.trim() ?? "";
+    if (trimmed.isEmpty) {
+      setBox.delete("ytDlpPath");
+      ytDlpPath.value = "";
+      return;
+    }
+    setBox.put("ytDlpPath", trimmed);
+    ytDlpPath.value = trimmed;
   }
 
   void setPlayerUi(dynamic val) {

@@ -27,11 +27,12 @@ import 'package:harmonymusic/services/stream_service.dart';
 //   }
 // }
 
-Future<Map<String, dynamic>> getStreamInfo(String songId, dynamic token) async {
+Future<Map<String, dynamic>> getStreamInfo(String songId, dynamic token,
+    [String? ytDlpPath]) async {
   if (songId.substring(0, 4) == "MPED") {
     songId = songId.substring(4);
   }
   BackgroundIsolateBinaryMessenger.ensureInitialized(token);
-  final playerResponse = (await StreamProvider.fetch(songId));
+  final playerResponse = (await StreamProvider.fetch(songId, ytDlpPath: ytDlpPath));
   return playerResponse.hmStreamingData;
 }
