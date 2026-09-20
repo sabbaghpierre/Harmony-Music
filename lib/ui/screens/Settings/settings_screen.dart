@@ -57,7 +57,7 @@ class SettingsScreen extends StatelessWidget {
                             onTap: () {
                               launchUrl(
                                 Uri.parse(
-                                  'https://github.com/anandnet/Harmony-Music/releases/latest',
+                                  'https://github.com/sabbaghpierre/Harmony-Music/releases/latest',
                                 ),
                                 mode: LaunchMode.externalApplication,
                               );
@@ -661,15 +661,17 @@ class SettingsScreen extends StatelessWidget {
                   ListTile(
                     contentPadding: const EdgeInsets.only(left: 5, right: 10),
                     title: Text("github".tr),
-                    subtitle: Text(
-                      "${"githubDes".tr}${((Get.find<PlayerController>().playerPanelMinHeight.value) == 0 || !isBottomNavActive) ? "" : "\n\n${settingsController.currentVersion} ${"by".tr} anandnet"}",
-                      style: Theme.of(context).textTheme.bodyMedium,
+                    subtitle: Obx(
+                      () => Text(
+                        "${"githubDes".tr}${((Get.find<PlayerController>().playerPanelMinHeight.value) == 0 || !isBottomNavActive) ? "" : "\n\n${settingsController.currentVersion.value} ${"by".tr} sabbaghpierre"}",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
                     ),
                     isThreeLine: true,
                     onTap: () {
                       launchUrl(
                         Uri.parse(
-                          'https://github.com/anandnet/Harmony-Music',
+                          'https://github.com/sabbaghpierre/Harmony-Music',
                         ),
                         mode: LaunchMode.externalApplication,
                       );
@@ -683,8 +685,10 @@ class SettingsScreen extends StatelessWidget {
                           "Harmony Music",
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
-                        Text(settingsController.currentVersion,
-                            style: Theme.of(context).textTheme.titleMedium)
+                        Obx(
+                          () => Text(settingsController.currentVersion.value,
+                              style: Theme.of(context).textTheme.titleMedium),
+                        )
                       ],
                     ),
                   ),
@@ -694,9 +698,11 @@ class SettingsScreen extends StatelessWidget {
           )),
           Padding(
             padding: const EdgeInsets.only(bottom: 20.0),
-            child: Text(
-              "${settingsController.currentVersion} ${"by".tr} anandnet",
-              style: Theme.of(context).textTheme.bodySmall,
+            child: Obx(
+              () => Text(
+                "${settingsController.currentVersion.value} ${"by".tr} sabbaghpierre",
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
           ),
         ],

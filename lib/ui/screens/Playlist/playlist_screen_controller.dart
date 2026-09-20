@@ -326,7 +326,7 @@ class PlaylistScreenController extends PlaylistAlbumScreenControllerBase
         "playlistInfo": playlist.value.toJson(),
         "songs": songList.map((song) => MediaItemBuilder.toJson(song)).toList(),
         "exportDate": DateTime.now().toIso8601String(),
-        "appVersion": Get.find<SettingsScreenController>().currentVersion,
+        "appVersion": Get.find<SettingsScreenController>().currentVersion.value,
       };
       exportProgress.value = 0.5;
 

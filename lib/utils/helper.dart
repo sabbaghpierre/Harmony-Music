@@ -161,25 +161,32 @@ void sortArtist(
 }
 
 /// Return true if new version available
+/// Accepts versions with or without a leading `V`/`v` and with or without
+/// build metadata (e.g. `V1.13.0`, `1.13.0`, `1.13.0+28`).
+List<int> _normalizeVersionParts(String version) {
+  var v = version.trim();
+  if (v.startsWith('V') || v.startsWith('v')) v = v.substring(1);
+  v = v.split('+').first;
+  return v.split('.').map((part) => int.tryParse(part) ?? 0).toList();
+}
+
 Future<bool> newVersionCheck(String currentVersion) async {
   try {
     final tags = (await Dio()
             .get("https://api.github.com/repos/anandnet/Harmony-Music/tags"))
         .data;
     final availableVersion = tags[0]['name'] as String;
-    List currentVersion_ = currentVersion.substring(1).split(".");
-    List availableVersion_ = availableVersion.substring(1).split(".");
-    if (int.parse(availableVersion_[0]) > int.parse(currentVersion_[0])) {
-      return true;
-    } else if (int.parse(availableVersion_[1]) >
-            int.parse(currentVersion_[1]) &&
-        int.parse(availableVersion_[0]) == int.parse(currentVersion_[0])) {
-      return true;
-    } else if (int.parse(availableVersion_[2]) >
-            int.parse(currentVersion_[2]) &&
-        int.parse(availableVersion_[0]) == int.parse(currentVersion_[0]) &&
-        int.parse(availableVersion_[1]) == int.parse(currentVersion_[1])) {
-      return true;
+    final currentParts = _normalizeVersionParts(currentVersion);
+    final availableParts = _normalizeVersionParts(availableVersion);
+    final length =
+        currentParts.length > availableParts.length
+            ? currentParts.length
+            : availableParts.length;
+    for (var i = 0; i < length; i++) {
+      final current = i < currentParts.length ? currentParts[i] : 0;
+      final available = i < availableParts.length ? availableParts[i] : 0;
+      if (available > current) return true;
+      if (available < current) return false;
     }
     return false;
   } catch (e) {
