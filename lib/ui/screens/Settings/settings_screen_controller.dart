@@ -41,6 +41,7 @@ class SettingsScreenController extends GetxController {
   final downloadLocationPath = "".obs;
   final exportLocationPath = "".obs;
   final ytDlpPath = RxnString();
+  final ytDlpCookiesBrowser = RxnString();
   final downloadingFormat = "".obs;
   final autoDownloadFavoriteSongEnabled = false.obs;
   final isTransitionAnimationDisabled = false.obs;
@@ -131,6 +132,8 @@ class SettingsScreenController extends GetxController {
     exportLocationPath.value =
         setBox.get("exportLocationPath") ?? "/storage/emulated/0/Music";
     ytDlpPath.value = setBox.get("ytDlpPath")?.toString() ?? "";
+    ytDlpCookiesBrowser.value =
+        setBox.get("ytDlpCookiesFromBrowser")?.toString() ?? "";
     downloadingFormat.value = setBox.get('downloadingFormat') ?? "m4a";
     discoverContentType.value = setBox.get('discoverContentType') ?? "QP";
     slidableActionEnabled.value = setBox.get('slidableActionEnabled') ?? true;
@@ -174,6 +177,17 @@ class SettingsScreenController extends GetxController {
     }
     setBox.put("ytDlpPath", trimmed);
     ytDlpPath.value = trimmed;
+  }
+
+  void setYtDlpCookiesBrowser(String? browser) {
+    final trimmed = browser?.trim() ?? "";
+    if (trimmed.isEmpty) {
+      setBox.delete("ytDlpCookiesFromBrowser");
+      ytDlpCookiesBrowser.value = "";
+      return;
+    }
+    setBox.put("ytDlpCookiesFromBrowser", trimmed);
+    ytDlpCookiesBrowser.value = trimmed;
   }
 
   void setPlayerUi(dynamic val) {

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
@@ -11,13 +13,14 @@ class StreamProvider {
       {required this.playable, this.audioFormats, this.statusMSG = ""});
 
   static Future<StreamProvider> fetch(String videoId,
-      {String? ytDlpPath}) async {
+      {String? ytDlpPath, String? ytDlpCookiesFromBrowser}) async {
     // Prefer resolving via yt-dlp: its URLs carry the PO token / signature
     // that lets the CDN serve the whole file. Token-less androidSdkless URLs
     // only serve the first ~1MB (403 for any larger/open range), which breaks
-    // playback. Falls back to getManifest below (used on platforms where
-    // yt-dlp is unavailable, e.g. Android).
-    final ytDlpUrl = await _resolveWithYtDlp(videoId, ytDlpPath: ytDlpPath);
+    // playback.
+    final ytDlpUrl = await _resolveWithYtDlp(videoId,
+        ytDlpPath: ytDlpPath,
+        ytDlpCookiesFromBrowser: ytDlpCookiesFromBrowser);
     if (ytDlpUrl != null) {
       return StreamProvider(
           playable: true,
@@ -37,8 +40,18 @@ class StreamProvider {
           ]);
     }
 
+    // Desktop can't play the androidSdkless URLs the CDN gates to ~1MB, and
+    // has yt-dlp available, so don't fall back here. Keep the getManifest
+    // fallback only for platforms without a yt-dlp binary (e.g. Android).
+    if (GetPlatform.isDesktop) {
+      return StreamProvider(
+          playable: false,
+          statusMSG:
+              "Stream resolution failed (yt-dlp is missing or blocked)");
+    }
+
     final yt = YoutubeExplode();
-    
+
     try {
       final res = await yt.videos.streamsClient.getManifest(videoId);
       final audio = res.audioOnly;
@@ -107,13 +120,36 @@ class StreamProvider {
       audioFormats?.lastWhere((item) => item.itag == 249 || item.itag == 139,
           orElse: () => audioFormats!.first);
 
+  static Future<String?>? _resolveInFlight;
+
   static Future<String?> _resolveWithYtDlp(String videoId,
-      {String? ytDlpPath}) async {
-    for (final bin in _ytDlpBinCandidates(ytDlpPath)) {
-      final url = await _runYtDlp(bin, videoId);
-      if (url != null) return url;
+      {String? ytDlpPath, String? ytDlpCookiesFromBrowser}) async {
+    // Serialize resolutions: concurrent yt-dlp runs hammer innertube and
+    // trigger YouTube's bot/rate-limit checks.
+    while (_resolveInFlight != null) {
+      try {
+        await _resolveInFlight;
+      } catch (_) {}
     }
-    return null;
+    final completer = Completer<String?>();
+    _resolveInFlight = completer.future;
+    try {
+      for (final bin in _ytDlpBinCandidates(ytDlpPath)) {
+        final url = await _runYtDlp(bin, videoId,
+            ytDlpCookiesFromBrowser: ytDlpCookiesFromBrowser);
+        if (url != null) {
+          completer.complete(url);
+          return url;
+        }
+      }
+      completer.complete(null);
+      return null;
+    } catch (_) {
+      completer.complete(null);
+      return null;
+    } finally {
+      _resolveInFlight = null;
+    }
   }
 
   static List<String> _ytDlpBinCandidates(String? ytDlpPath) {
@@ -140,8 +176,11 @@ class StreamProvider {
     }
   }
 
-  static Future<String?> _runYtDlp(String bin, String videoId) async {
+  static Future<String?> _runYtDlp(String bin, String videoId,
+      {String? ytDlpCookiesFromBrowser}) async {
     try {
+      final cookieBrowser =
+          ytDlpCookiesFromBrowser?.trim() ?? '';
       final res = await Process.run(
         bin,
         [
@@ -150,6 +189,8 @@ class StreamProvider {
           '--no-warnings',
           '-f',
           'ba/b',
+          if (cookieBrowser.isNotEmpty) '--cookies-from-browser',
+          if (cookieBrowser.isNotEmpty) cookieBrowser,
           '-g',
           'https://music.youtube.com/watch?v=$videoId',
         ],

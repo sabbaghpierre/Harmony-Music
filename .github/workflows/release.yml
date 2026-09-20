@@ -123,7 +123,38 @@ jobs:
       - name: Build AppImage
         run: |
           dart pub global activate flutter_distributor
+          bash .github/scripts/patch-appimage-version.sh
           flutter_distributor package --platform linux --targets appimage
+
+      - name: Verify AppImage exposes version (GearLever reads X-AppImage-Version)
+        env:
+          EXPECTED_VERSION: ${{ needs.setup.outputs.name }}
+        run: |
+          set -euo pipefail
+          mapfile -t images < <(find dist -name '*.AppImage' -type f)
+          if [ "${#images[@]}" -eq 0 ]; then
+            echo "No AppImage found under dist/" >&2
+            exit 1
+          fi
+          for img in "${images[@]}"; do
+            echo "Checking $img (expect X-AppImage-Version=$EXPECTED_VERSION)"
+            chmod +x "$img"
+            tmpdir=$(mktemp -d)
+            img_abs="$PWD/$img"
+            (cd "$tmpdir" && "$img_abs" --appimage-extract '*.desktop' >/dev/null)
+            desktop=$(find "$tmpdir/squashfs-root" -name '*.desktop' | head -1)
+            if [ -z "$desktop" ]; then
+              echo "No .desktop file extracted from $img" >&2
+              rm -rf "$tmpdir"
+              exit 1
+            fi
+            echo "--- $desktop ---"
+            cat "$desktop"
+            echo "--- end ---"
+            grep -q "^X-AppImage-Version=${EXPECTED_VERSION}$" "$desktop"
+            rm -rf "$tmpdir"
+          done
+          echo "All AppImages expose X-AppImage-Version=$EXPECTED_VERSION"
 
       - uses: actions/upload-artifact@v4
         with:

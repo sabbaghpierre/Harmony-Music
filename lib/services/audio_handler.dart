@@ -60,6 +60,9 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
   bool loudnessNormalizationEnabled = false;
   // var networkErrorPause = false;
   bool isSongLoading = true;
+  // Next-track stream URL pre-resolution state (desktop: hides yt-dlp latency).
+  String? _prewarmedNextId;
+  String? _prewarmInFlightId;
 
   // list of shuffled queue songs ids
   List<String> shuffledQueue = [];
@@ -195,6 +198,7 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
   }
 
   void _listenToPlaybackForNextSong() {
+    const prewarmLead = Duration(seconds: 90);
     final playerDurationOffset = GetPlatform.isWindows
         ? 200
         : GetPlatform.isLinux
@@ -205,9 +209,33 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         if (value.inMilliseconds >=
             (_player.duration!.inMilliseconds - playerDurationOffset)) {
           await _triggerNext();
+        } else if (value.inMilliseconds >=
+            (_player.duration!.inMilliseconds -
+                prewarmLead.inMilliseconds)) {
+          _prewarmNextStream();
         }
       }
     });
+  }
+
+  // Resolve the next queue item's stream URL ahead of time so track changes
+  // start instantly instead of waiting on a yt-dlp resolve (~seconds).
+  Future<void> _prewarmNextStream() async {
+    if (queue.value.isEmpty || currentIndex == null) return;
+    final nextIndex = _peekNextSongIndex();
+    if (nextIndex == currentIndex || nextIndex >= queue.value.length) return;
+    final nextId = queue.value[nextIndex].id;
+    if (_prewarmedNextId == nextId || _prewarmInFlightId == nextId) return;
+    _prewarmInFlightId = nextId;
+    printINFO("Pre-resolving stream url for next song ($nextId)");
+    try {
+      await checkNGetUrl(nextId);
+    } catch (e) {
+      printERROR(e);
+    } finally {
+      _prewarmInFlightId = null;
+      _prewarmedNextId = nextId;
+    }
   }
 
   Future<void> _triggerNext() async {
@@ -356,6 +384,29 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
     await customAction("playByIndex", {'index': index});
   }
 
+  // Pure peek at the next song index. Unlike _getNextSongIndex it does NOT
+  // advance the shuffle cursor, so it is safe to call repeatedly (position
+  // ticks, prewarm). Only actual navigation may move the shuffle cursor.
+  int _peekNextSongIndex() {
+    if (shuffleModeEnabled) {
+      if (shuffledQueue.isEmpty) return currentIndex;
+      final nextShuffleIdx = currentShuffleIndex + 1 >= shuffledQueue.length
+          ? 0
+          : currentShuffleIndex + 1;
+      final id = shuffledQueue[nextShuffleIdx];
+      final i = queue.value.indexWhere((item) => item.id == id);
+      return i == -1 ? currentIndex : i;
+    }
+
+    if (queue.value.length > currentIndex + 1) {
+      return currentIndex + 1;
+    } else if (queueLoopModeEnabled) {
+      return 0;
+    } else {
+      return currentIndex;
+    }
+  }
+
   int _getNextSongIndex() {
     if (shuffleModeEnabled) {
       if (currentShuffleIndex + 1 >= shuffledQueue.length) {
@@ -453,6 +504,7 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
       case 'playByIndex':
         final songIndex = extras!['index'];
         currentIndex = songIndex;
+        _prewarmedNextId = null;
         final isNewUrlReq = extras['newUrl'] ?? false;
         final currentSong = queue.value[currentIndex];
         final futureStreamInfo =
@@ -509,6 +561,7 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         } else {
           await _player.play();
         }
+        _prewarmNextStream();
         break;
 
       case 'checkWithCacheDb':
@@ -548,6 +601,7 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         final futureStreamInfo = checkNGetUrl(currMed.id);
         isSongLoading = true;
         currentIndex = 0;
+        _prewarmedNextId = null;
         await _playList.clear();
         mediaItem.add(currMed);
         queue.add([currMed]);
@@ -859,8 +913,13 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
         final token = RootIsolateToken.instance;
         final ytDlpPath =
             Hive.box("AppPrefs").get("ytDlpPath")?.toString().trim() ?? "";
-        final streamInfoJson = await Isolate.run(
-            () => getStreamInfo(songId, token, ytDlpPath));
+        final ytDlpCookiesFromBrowser = Hive.box("AppPrefs")
+                .get("ytDlpCookiesFromBrowser")
+                ?.toString()
+                .trim() ??
+            "";
+        final streamInfoJson = await Isolate.run(() => getStreamInfo(
+            songId, token, ytDlpPath, ytDlpCookiesFromBrowser));
         streamInfo = HMStreamingData.fromJson(streamInfoJson);
         if (streamInfo.playable) songsUrlCacheBox.put(songId, streamInfoJson);
       }

@@ -428,6 +428,27 @@ class SettingsScreen extends StatelessWidget {
                         onPressed: () => _showYtDlpPathDialog(context),
                       ),
                     ),
+                  if (isDesktop)
+                    ListTile(
+                      contentPadding:
+                          const EdgeInsets.only(left: 5, right: 10),
+                      title: const Text("yt-dlp: cookie browser"),
+                      subtitle: Obx(
+                        () => Text(
+                          settingsController.ytDlpCookiesBrowser.value ==
+                                  null ||
+                                  settingsController
+                                      .ytDlpCookiesBrowser.value!.isEmpty
+                              ? "Uses logged-in cookies to bypass YouTube bot checks. Optional."
+                              : "Use cookies from: ${settingsController.ytDlpCookiesBrowser.value}",
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _showYtDlpCookiesDialog(context),
+                      ),
+                    ),
                   ListTile(
                       contentPadding: const EdgeInsets.only(left: 5, right: 10),
                       title: Text("keepScreenOnWhilePlaying".tr),
@@ -905,6 +926,85 @@ void _showYtDlpPathDialog(BuildContext context) {
         ElevatedButton(
           onPressed: () {
             settingsController.setYtDlpPath(controller.text);
+            Navigator.pop(dialogContext);
+          },
+          child: const Text("Save"),
+        ),
+      ],
+    ),
+  );
+}
+
+void _showYtDlpCookiesDialog(BuildContext context) {
+  final settingsController = Get.find<SettingsScreenController>();
+  const browsers = [
+    'chromium',
+    'firefox',
+    'brave',
+    'edge',
+    'vivaldi',
+    'opera',
+  ];
+  String? selected = settingsController.ytDlpCookiesBrowser.value?.trim().isNotEmpty == true
+      ? settingsController.ytDlpCookiesBrowser.value
+      : null;
+  final controller = ValueNotifier<String?>(selected);
+  showDialog(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text("yt-dlp cookie browser"),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Pick the browser yt-dlp reads your YouTube cookies from. "
+            "This authenticates stream resolution and avoids YouTube's "
+            "\"confirm you're not a bot\" check.",
+            style: TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          ValueListenableBuilder<String?>(
+            valueListenable: controller,
+            builder: (context, value, _) => DropdownButtonFormField<String>(
+              value: value,
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text("None (no cookies)"),
+                ),
+                ...browsers
+                    .map((b) => DropdownMenuItem<String>(
+                          value: b,
+                          child: Text(b),
+                        ))
+                    .toList(),
+              ],
+              onChanged: (v) => controller.value = v,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            settingsController.setYtDlpCookiesBrowser(null);
+            Navigator.pop(dialogContext);
+          },
+          child: const Text("Clear"),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext),
+          child: const Text("Cancel"),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            settingsController
+                .setYtDlpCookiesBrowser(controller.value ?? "");
             Navigator.pop(dialogContext);
           },
           child: const Text("Save"),
