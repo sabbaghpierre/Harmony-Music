@@ -123,8 +123,12 @@ jobs:
       - name: Build AppImage
         run: |
           dart pub global activate flutter_distributor
-          bash .github/scripts/patch-appimage-version.sh
           flutter_distributor package --platform linux --targets appimage
+
+      - name: Inject version into AppImage (GearLever reads X-AppImage-Version)
+        env:
+          EXPECTED_VERSION: ${{ needs.setup.outputs.name }}
+        run: bash .github/scripts/inject-appimage-version.sh
 
       - name: Verify AppImage exposes version (GearLever reads X-AppImage-Version)
         env:
